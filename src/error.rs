@@ -60,9 +60,6 @@ struct Inner {
     url: Option<Url>,
 }
 
-/// A `Result` alias where the `Err` case is `reqwest::Error`.
-pub type Result<T> = std::result::Result<T, Error>;
-
 impl Error {
     fn new(kind: Kind, url: Option<Url>) -> Error {
         Error {

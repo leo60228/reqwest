@@ -172,60 +172,32 @@
 ////! - **trust-dns**: Enables a trust-dns async resolver instead of default
 ////!   threadpool using `getaddrinfo`.
 
-extern crate cookie as cookie_crate;
+macro_rules! if_wasm {
+    ($($item:item)*) => {$(
+        #[cfg(target_arch = "wasm32")]
+        $item
+    )*}
+}
 
-#[cfg(test)]
-#[macro_use]
-extern crate doc_comment;
+macro_rules! if_hyper {
+    ($($item:item)*) => {$(
+        #[cfg(not(target_arch = "wasm32"))]
+        $item
+    )*}
+}
 
-#[cfg(test)]
-doctest!("../README.md");
-
-pub use hyper::header;
-pub use hyper::Method;
-pub use hyper::{StatusCode, Version};
-pub use url::ParseError as UrlError;
+pub use http::header;
+pub use http::Method;
+pub use http::{StatusCode, Version};
 pub use url::Url;
 
-pub use self::async_impl::{
-    multipart, Body, Client, ClientBuilder, Request, RequestBuilder, Response,
-};
-//pub use self::body::Body;
-//pub use self::client::{Client, ClientBuilder};
-pub use self::error::{Error, Result};
-pub use self::into_url::IntoUrl;
-pub use self::proxy::Proxy;
-pub use self::redirect::{RedirectAction, RedirectAttempt, RedirectPolicy};
-//pub use self::request::{Request, RequestBuilder};
-//pub use self::response::Response;
-#[cfg(feature = "tls")]
-pub use self::tls::{Certificate, Identity};
+/// A `Result` alias where the `Err` case is `reqwest::Error`.
+pub type Result<T> = std::result::Result<T, Error>;
 
-// this module must be first because of the `try_` macro
-#[macro_use]
-mod error;
-
-mod async_impl;
-pub mod blocking;
-mod connect;
-pub mod cookie;
-//#[cfg(feature = "trust-dns")]
-//mod dns;
+// universal mods
 mod into_url;
-mod proxy;
-mod redirect;
-#[cfg(feature = "tls")]
-mod tls;
 
-//pub mod multipart;
-
-#[doc(hidden)]
-#[deprecated(note = "types moved to top of crate")]
-pub mod r#async {
-    pub use crate::async_impl::{
-        multipart, Body, Client, ClientBuilder, Request, RequestBuilder, Response,
-    };
-}
+pub use self::into_url::IntoUrl;
 
 /// Shortcut method to quickly make a `GET` request.
 ///
@@ -271,8 +243,58 @@ fn _assert_impls() {
     assert_send::<Request>();
     assert_send::<RequestBuilder>();
 
-    assert_send::<Response>();
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        assert_send::<Response>();
+    }
 
     assert_send::<Error>();
     assert_sync::<Error>();
+}
+
+if_hyper! {
+    #[cfg(test)]
+    #[macro_use]
+    extern crate doc_comment;
+
+    #[cfg(test)]
+    doctest!("../README.md");
+
+    pub use self::async_impl::{
+        multipart, Body, Client, ClientBuilder, Request, RequestBuilder, Response,
+    };
+    pub use self::error::Error;
+    pub use self::proxy::Proxy;
+    pub use self::redirect::{RedirectAction, RedirectAttempt, RedirectPolicy};
+    #[cfg(feature = "tls")]
+    pub use self::tls::{Certificate, Identity};
+
+    #[macro_use]
+    mod error;
+
+    mod async_impl;
+    pub mod blocking;
+    mod connect;
+    pub mod cookie;
+    //#[cfg(feature = "trust-dns")]
+    //mod dns;
+    mod proxy;
+    mod redirect;
+    #[cfg(feature = "tls")]
+    mod tls;
+
+    #[doc(hidden)]
+    #[deprecated(note = "types moved to top of crate")]
+    pub mod r#async {
+        pub use crate::async_impl::{
+            multipart, Body, Client, ClientBuilder, Request, RequestBuilder, Response,
+        };
+    }
+}
+
+if_wasm! {
+    mod wasm;
+
+    use self::wasm::error;
+    pub use self::wasm::{Body, Client, ClientBuilder, error::Error, Request, RequestBuilder, Response};
 }

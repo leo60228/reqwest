@@ -15,12 +15,26 @@ pub trait PolyfillTryInto {
     fn into_url(self) -> crate::Result<Url>;
 }
 
-impl PolyfillTryInto for Url {
-    fn into_url(self) -> crate::Result<Url> {
-        if self.has_host() {
-            Ok(self)
-        } else {
-            Err(crate::error::url_bad_scheme(self))
+if_hyper! {
+    impl PolyfillTryInto for Url {
+        fn into_url(self) -> crate::Result<Url> {
+            if self.has_host() {
+                Ok(self)
+            } else {
+                Err(crate::error::url_bad_scheme(self))
+            }
+        }
+    }
+}
+
+if_wasm! {
+    impl PolyfillTryInto for Url {
+        fn into_url(self) -> crate::Result<Url> {
+            if self.has_host() {
+                Ok(self)
+            } else {
+                unimplemented!("url_bad_scheme");
+            }
         }
     }
 }
@@ -37,14 +51,16 @@ impl<'a> PolyfillTryInto for &'a String {
     }
 }
 
-pub(crate) fn expect_uri(url: &Url) -> hyper::Uri {
-    url.as_str()
-        .parse()
-        .expect("a parsed Url should always be a valid Uri")
-}
+if_hyper! {
+    pub(crate) fn expect_uri(url: &Url) -> http::Uri {
+        url.as_str()
+            .parse()
+            .expect("a parsed Url should always be a valid Uri")
+    }
 
-pub(crate) fn try_uri(url: &Url) -> Option<hyper::Uri> {
-    url.as_str().parse().ok()
+    pub(crate) fn try_uri(url: &Url) -> Option<http::Uri> {
+        url.as_str().parse().ok()
+    }
 }
 
 #[cfg(test)]
